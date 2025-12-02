@@ -26,12 +26,13 @@ if (!process.env.SLACK_BOT_TOKEN || !process.env.SLACK_SIGNING_SECRET || !proces
 }
 
 // Initialize Slack app
+// Note: With Socket Mode, we don't need a port for the Slack app
+// The Express server will handle HTTP requests
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
   signingSecret: process.env.SLACK_SIGNING_SECRET,
   socketMode: true,
-  appToken: process.env.SLACK_APP_TOKEN,
-  port: process.env.PORT || 3001
+  appToken: process.env.SLACK_APP_TOKEN
 });
 
 // Simple in-memory storage (in production you'd use a database)
@@ -437,9 +438,11 @@ expressApp.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-expressApp.listen(process.env.API_PORT || 3002, () => {
-  console.log('✅ API server running on port', process.env.API_PORT || 3002);
-  console.log('🔗 Health check: http://localhost:' + (process.env.API_PORT || 3002) + '/health');
+// Start Express server on Railway's PORT or API_PORT
+const serverPort = process.env.PORT || process.env.API_PORT || 3002;
+expressApp.listen(serverPort, () => {
+  console.log('✅ API server running on port', serverPort);
+  console.log('🔗 Health check: http://localhost:' + serverPort + '/health');
 });
 
 // Global error handling
