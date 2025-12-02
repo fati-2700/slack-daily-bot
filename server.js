@@ -433,6 +433,22 @@ expressApp.delete('/api/tasks/:userId/:taskId', (req, res) => {
   }
 });
 
+// Root route - Info page
+expressApp.get('/', (req, res) => {
+  res.json({
+    service: 'Slack Daily Bot API',
+    status: 'running',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      config: '/api/config/:userId',
+      tasks: '/api/tasks/:userId'
+    },
+    webInterface: process.env.VERCEL_URL || 'https://your-app.vercel.app',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Health check route
 expressApp.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
