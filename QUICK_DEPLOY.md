@@ -17,7 +17,7 @@
 git init
 git add .
 git commit -m "Ready for deployment"
-git remote add origin https://github.com/YOUR_USERNAME/slack-daily-bot.git
+git remote add origin https://github.com/fati-2700/slack-daily-bot.git
 git push -u origin main
 ```
 
