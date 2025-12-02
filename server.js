@@ -439,10 +439,12 @@ expressApp.get('/health', (req, res) => {
 });
 
 // Start Express server on Railway's PORT or API_PORT
+// Listen on 0.0.0.0 to accept connections from Railway
 const serverPort = process.env.PORT || process.env.API_PORT || 3002;
-expressApp.listen(serverPort, () => {
+expressApp.listen(serverPort, '0.0.0.0', () => {
   console.log('✅ API server running on port', serverPort);
   console.log('🔗 Health check: http://localhost:' + serverPort + '/health');
+  console.log('🌐 Listening on 0.0.0.0:' + serverPort + ' (Railway compatible)');
 });
 
 // Global error handling
