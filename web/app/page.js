@@ -13,21 +13,42 @@ export default function Home() {
   const [newTask, setNewTask] = useState('')
   const [tasksLoading, setTasksLoading] = useState(false)
 
-  // Simulate Slack connection (in production you'd use real OAuth)
+  // Connect to Slack and fetch real channels
   const connectSlack = async () => {
     setLoading(true)
-    // Simulate authentication
-    setTimeout(() => {
-      setIsConnected(true)
-      setUserId('U123456') // Simulated user ID
-      setChannels([
-        { id: 'C001', name: '# general' },
-        { id: 'C002', name: '# random' },
-        { id: 'C003', name: '# projects' },
-      ])
-      setLoading(false)
-      loadTasks()
-    }, 1000)
+    try {
+      // Fetch real channels from Slack API
+      const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+        ? 'http://localhost:3002/api/channels'
+        : '/api/channels';
+      
+      console.log('Fetching channels from:', apiUrl);
+      
+      const response = await fetch(apiUrl);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Error ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Channels received:', data.channels);
+      
+      // Set channels
+      setChannels(data.channels || []);
+      
+      // For now, use a simulated user ID (in production, get from OAuth)
+      // TODO: Implement real OAuth to get actual userId
+      setUserId('U123456'); // This should come from Slack OAuth in production
+      
+      setIsConnected(true);
+      setLoading(false);
+      loadTasks();
+    } catch (error) {
+      console.error('Error connecting to Slack:', error);
+      alert(`Error loading channels: ${error.message}\n\nMake sure the Railway server is running and has the correct Slack permissions.`);
+      setLoading(false);
+    }
   }
 
   const loadTasks = async () => {
@@ -144,9 +165,10 @@ export default function Home() {
     setLoading(true)
     try {
       // Use Next.js API route in production, or directly the server in development
-      const apiUrl = process.env.NODE_ENV === 'production' 
-        ? '/api/config' 
-        : 'http://localhost:3002/api/config';
+      // In production, the API route will proxy to Railway
+      const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+        ? 'http://localhost:3002/api/config'
+        : '/api/config';
       
       console.log('Sending configuration to:', apiUrl);
       console.log('Data:', { userId, channelId, hour });

@@ -360,6 +360,38 @@ expressApp.post('/api/config', (req, res) => {
   }
 });
 
+// API endpoint to get Slack channels
+expressApp.get('/api/channels', async (req, res) => {
+  try {
+    console.log('📥 GET /api/channels - Fetching channels from Slack');
+    
+    // Use the Slack client to get channels
+    const result = await app.client.conversations.list({
+      types: 'public_channel,private_channel',
+      exclude_archived: true,
+      limit: 200
+    });
+    
+    if (!result.ok) {
+      console.error('❌ Error fetching channels:', result.error);
+      return res.status(500).json({ error: result.error || 'Failed to fetch channels' });
+    }
+    
+    // Format channels for the frontend
+    const channels = result.channels.map(channel => ({
+      id: channel.id,
+      name: channel.is_private ? `🔒 ${channel.name}` : `# ${channel.name}`,
+      is_private: channel.is_private
+    }));
+    
+    console.log(`✅ Found ${channels.length} channels`);
+    res.json({ channels });
+  } catch (error) {
+    console.error('❌ Error in GET /api/channels:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // API endpoints for tasks
 expressApp.get('/api/tasks/:userId', (req, res) => {
   try {
