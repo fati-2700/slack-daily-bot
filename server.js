@@ -49,20 +49,28 @@ app.command('/daily', async ({ command, ack, respond, client }) => {
     
     console.log(`📝 /daily command received from user ${userId} in channel ${channelId}`);
     
-    // Save or update user configuration
+    // Get existing configuration or create new one
+    const existingConfig = userConfigs.get(userId);
+    const currentHour = existingConfig?.hour || 9; // Use existing hour or default to 9 AM
+    
+    console.log(`📊 Existing config for user ${userId}:`, existingConfig);
+    console.log(`⏰ Using hour: ${currentHour}`);
+    
+    // Update configuration - preserve hour from web interface if it exists
     userConfigs.set(userId, {
-      channelId: channelId,
-      hour: userConfigs.get(userId)?.hour || 9, // Keep existing hour or default to 9 AM
+      channelId: channelId, // Update channel to current channel
+      hour: currentHour, // Keep the hour that was set (from web or previous config)
       enabled: true,
-      lastSent: userConfigs.get(userId)?.lastSent || null
+      lastSent: existingConfig?.lastSent || null
     });
+    
+    const savedConfig = userConfigs.get(userId);
+    console.log(`✅ Configuration saved for user ${userId}:`, savedConfig);
     
     await respond({
-      text: `✅ Configuration saved. The bot will send daily messages to this channel at ${userConfigs.get(userId).hour}:00.`,
+      text: `✅ Configuration saved. The bot will send daily messages to this channel at ${savedConfig.hour}:00.\n\n💡 To change the time, use the web interface at your Vercel URL.`,
       response_type: 'ephemeral'
     });
-    
-    console.log(`✅ Configuration saved for user ${userId}`);
   } catch (error) {
     console.error('❌ Error in /daily command:', error);
     try {
@@ -318,22 +326,34 @@ expressApp.post('/api/config', (req, res) => {
   try {
     const { userId, channelId, hour } = req.body;
     
-    console.log('📥 POST /api/config received:', { userId, channelId, hour });
+    console.log('📥 POST /api/config received:', { userId, channelId, hour, hourType: typeof hour });
     
     if (!userId || !channelId || hour === undefined) {
       console.error('❌ Missing parameters:', { userId, channelId, hour });
       return res.status(400).json({ error: 'Missing required parameters' });
     }
     
+    const parsedHour = parseInt(hour, 10);
+    if (isNaN(parsedHour) || parsedHour < 0 || parsedHour > 23) {
+      console.error('❌ Invalid hour:', hour);
+      return res.status(400).json({ error: 'Invalid hour. Must be between 0 and 23.' });
+    }
+    
+    const previousConfig = userConfigs.get(userId);
+    console.log('📊 Previous config:', previousConfig);
+    
     userConfigs.set(userId, {
       channelId,
-      hour: parseInt(hour),
+      hour: parsedHour,
       enabled: true,
-      lastSent: userConfigs.get(userId)?.lastSent || null
+      lastSent: previousConfig?.lastSent || null
     });
     
-    console.log('✅ Configuration saved:', userConfigs.get(userId));
-    res.json({ success: true, config: userConfigs.get(userId) });
+    const savedConfig = userConfigs.get(userId);
+    console.log('✅ Configuration saved:', savedConfig);
+    console.log(`⏰ Hour set to: ${savedConfig.hour}:00`);
+    
+    res.json({ success: true, config: savedConfig });
   } catch (error) {
     console.error('❌ Error in POST /api/config:', error);
     res.status(500).json({ error: error.message });
