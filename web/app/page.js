@@ -50,13 +50,17 @@ export default function Home() {
       }
       
       console.log('Channels received:', data.channels);
+      console.log('Response data:', data);
       
       // Set channels
       if (!data.channels || data.channels.length === 0) {
-        alert('No channels found. Make sure the bot is a member of at least one channel in your Slack workspace.');
+        const message = data.message || data.warning || 'No channels found.';
+        const fullMessage = message + '\n\nTo fix this:\n1. Invite the bot to a channel: /invite @bot-name\n2. Make sure the bot has channels:read permission';
+        alert(fullMessage);
         setChannels([]);
       } else {
         setChannels(data.channels);
+        console.log(`✅ Loaded ${data.channels.length} channels successfully`);
       }
       
       // For now, use a simulated user ID (in production, get from OAuth)

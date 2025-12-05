@@ -364,30 +364,68 @@ expressApp.post('/api/config', (req, res) => {
 expressApp.get('/api/channels', async (req, res) => {
   try {
     console.log('📥 GET /api/channels - Fetching channels from Slack');
+    console.log('🔍 Bot token exists:', !!process.env.SLACK_BOT_TOKEN);
+    console.log('🔍 Bot token starts with:', process.env.SLACK_BOT_TOKEN?.substring(0, 10) + '...');
     
-    // Use the Slack client to get channels
-    // Note: Requires 'channels:read' and 'groups:read' scopes, or 'conversations.list' scope
-    const result = await app.client.conversations.list({
-      types: 'public_channel,private_channel',
-      exclude_archived: true,
-      limit: 200
-    });
+    // First, try to get public channels
+    console.log('📋 Attempting to fetch public channels...');
+    let result;
+    
+    try {
+      result = await app.client.conversations.list({
+        types: 'public_channel',
+        exclude_archived: true,
+        limit: 200
+      });
+      
+      console.log('📊 Public channels result:', {
+        ok: result.ok,
+        error: result.error,
+        channelsCount: result.channels?.length || 0
+      });
+      
+      // If we got an error, try with just the basic scope
+      if (!result.ok && result.error === 'missing_scope') {
+        console.log('⚠️ Missing scope for public channels, trying alternative method...');
+        // Try to get channels the bot is a member of
+        result = await app.client.users.conversations({
+          types: 'public_channel,private_channel',
+          exclude_archived: true,
+          limit: 200
+        });
+        console.log('📊 Users conversations result:', {
+          ok: result.ok,
+          error: result.error,
+          channelsCount: result.channels?.length || 0
+        });
+      }
+    } catch (apiError) {
+      console.error('❌ API call error:', apiError);
+      throw apiError;
+    }
     
     if (!result.ok) {
       console.error('❌ Error fetching channels:', result.error);
+      console.error('❌ Full error response:', JSON.stringify(result, null, 2));
+      
       const errorMessage = result.error === 'missing_scope' 
         ? 'Bot is missing required permissions. Add "channels:read" and "groups:read" (or "conversations.list") to Bot Token Scopes in Slack app settings, then reinstall the app.'
         : result.error || 'Failed to fetch channels';
       return res.status(500).json({ 
         error: errorMessage,
         slackError: result.error,
-        details: 'Make sure the bot has channels:read and groups:read permissions'
+        details: 'Make sure the bot has channels:read and groups:read permissions. Also ensure the bot is a member of at least one channel.',
+        fullError: result.error
       });
     }
     
     if (!result.channels || result.channels.length === 0) {
-      console.warn('⚠️ No channels found');
-      return res.json({ channels: [], message: 'No channels found. Make sure the bot is a member of at least one channel.' });
+      console.warn('⚠️ No channels found - bot might not be a member of any channels');
+      return res.json({ 
+        channels: [], 
+        message: 'No channels found. Make sure the bot is a member of at least one channel. Invite the bot to a channel using: /invite @bot-name',
+        warning: 'The bot needs to be invited to channels to see them'
+      });
     }
     
     // Format channels for the frontend
@@ -397,13 +435,15 @@ expressApp.get('/api/channels', async (req, res) => {
       is_private: channel.is_private
     }));
     
-    console.log(`✅ Found ${channels.length} channels`);
+    console.log(`✅ Found ${channels.length} channels:`, channels.map(c => c.name).join(', '));
     res.json({ channels });
   } catch (error) {
     console.error('❌ Error in GET /api/channels:', error);
+    console.error('❌ Error stack:', error.stack);
     res.status(500).json({ 
       error: error.message,
-      details: 'Check Railway logs for more information'
+      details: 'Check Railway logs for more information',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
