@@ -64,9 +64,12 @@ export default function Home() {
         console.log(`✅ Loaded ${data.channels.length} channels successfully`);
       }
       
-      // For now, use a simulated user ID (in production, get from OAuth)
-      // TODO: Implement real OAuth to get actual userId
-      setUserId('U123456'); // This should come from Slack OAuth in production
+      // For now, prompt user for their Slack user ID
+      // TODO: Implement real OAuth to get actual userId automatically
+      const userInput = prompt('Enter your Slack User ID (you can find it in Railway logs after running /daily in Slack, or leave empty to use default):');
+      const slackUserId = userInput?.trim() || 'U123456';
+      setUserId(slackUserId);
+      console.log('Using Slack User ID:', slackUserId);
       
       setIsConnected(true);
       setLoading(false);
