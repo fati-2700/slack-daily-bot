@@ -66,8 +66,16 @@ export default function Home() {
       
       // For now, prompt user for their Slack user ID
       // TODO: Implement real OAuth to get actual userId automatically
-      const userInput = prompt('Enter your Slack User ID (you can find it in Railway logs after running /daily in Slack, or leave empty to use default):');
+      const userInput = prompt(
+        'Enter your Slack User ID:\n\n' +
+        'You can find it in Railway logs after running /daily in Slack.\n' +
+        'It looks like: U0A0TPDCS4A\n\n' +
+        'If you leave it empty, the configuration won\'t match with Slack commands.'
+      );
       const slackUserId = userInput?.trim() || 'U123456';
+      if (slackUserId === 'U123456') {
+        alert('⚠️ Warning: Using default User ID. Your configuration from the web won\'t match with /daily command in Slack.\n\nTo fix this, find your User ID in Railway logs and use it here.');
+      }
       setUserId(slackUserId);
       console.log('Using Slack User ID:', slackUserId);
       
