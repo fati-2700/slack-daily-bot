@@ -49,31 +49,52 @@ app.command('/daily', async ({ command, ack, respond, client }) => {
     
     console.log(`📝 /daily command received from user ${userId} in channel ${channelId}`);
     
-    // Get existing configuration or create new one
+    // Get existing configuration
     const existingConfig = userConfigs.get(userId);
-    const currentHour = existingConfig?.hour || 9; // Use existing hour or default to 9 AM
-    const currentMinute = existingConfig?.minute || 0; // Use existing minute or default to 0
-    
     console.log(`📊 Existing config for user ${userId}:`, existingConfig);
-    console.log(`⏰ Using time: ${currentHour}:${String(currentMinute).padStart(2, '0')}`);
     
-    // Update configuration - preserve time from web interface if it exists
-    userConfigs.set(userId, {
-      channelId: channelId, // Update channel to current channel
-      hour: currentHour, // Keep the hour that was set (from web or previous config)
-      minute: currentMinute, // Keep the minute that was set (from web or previous config)
-      enabled: true,
-      lastSent: existingConfig?.lastSent || null
-    });
-    
-    const savedConfig = userConfigs.get(userId);
-    console.log(`✅ Configuration saved for user ${userId}:`, savedConfig);
-    
-    const timeString = `${savedConfig.hour}:${String(savedConfig.minute || 0).padStart(2, '0')}`;
-    await respond({
-      text: `✅ Configuration saved. The bot will send daily messages to this channel at ${timeString}.\n\n💡 To change the time, use the web interface at your Vercel URL.`,
-      response_type: 'ephemeral'
-    });
+    // If there's an existing config, use it (preserve time from web)
+    // Otherwise, create a new one with defaults
+    if (existingConfig) {
+      // Update channel but keep the time that was set from web interface
+      userConfigs.set(userId, {
+        channelId: channelId, // Update channel to current channel
+        hour: existingConfig.hour, // Keep the hour from web interface
+        minute: existingConfig.minute !== undefined ? existingConfig.minute : 0, // Keep the minute from web interface
+        enabled: true,
+        lastSent: existingConfig.lastSent || null
+      });
+      
+      const savedConfig = userConfigs.get(userId);
+      console.log(`✅ Configuration updated for user ${userId}:`, savedConfig);
+      
+      const timeString = `${savedConfig.hour}:${String(savedConfig.minute || 0).padStart(2, '0')}`;
+      await respond({
+        text: `✅ Configuration updated. The bot will send daily messages to this channel at ${timeString}.\n\n💡 To change the time, use the web interface at your Vercel URL.`,
+        response_type: 'ephemeral'
+      });
+    } else {
+      // No existing config - create new one with defaults
+      const defaultHour = 9;
+      const defaultMinute = 0;
+      
+      userConfigs.set(userId, {
+        channelId: channelId,
+        hour: defaultHour,
+        minute: defaultMinute,
+        enabled: true,
+        lastSent: null
+      });
+      
+      const savedConfig = userConfigs.get(userId);
+      console.log(`✅ New configuration created for user ${userId}:`, savedConfig);
+      
+      const timeString = `${savedConfig.hour}:${String(savedConfig.minute || 0).padStart(2, '0')}`;
+      await respond({
+        text: `✅ Configuration saved. The bot will send daily messages to this channel at ${timeString}.\n\n💡 Configure the time in the web interface at your Vercel URL, then run /daily again.`,
+        response_type: 'ephemeral'
+      });
+    }
   } catch (error) {
     console.error('❌ Error in /daily command:', error);
     try {
