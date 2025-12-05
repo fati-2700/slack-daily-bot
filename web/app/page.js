@@ -25,17 +25,39 @@ export default function Home() {
       console.log('Fetching channels from:', apiUrl);
       
       const response = await fetch(apiUrl);
+      const data = await response.json();
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Error ${response.status}`);
+        console.error('Error response:', data);
+        let errorMessage = data.error || `Error ${response.status}`;
+        
+        // Provide helpful error messages
+        if (data.slackError === 'missing_scope') {
+          errorMessage = 'Bot is missing required permissions.\n\n' +
+            'Please:\n' +
+            '1. Go to api.slack.com/apps\n' +
+            '2. Select your app → OAuth & Permissions\n' +
+            '3. Add these scopes to "Bot Token Scopes":\n' +
+            '   - channels:read\n' +
+            '   - groups:read\n' +
+            '4. Click "Reinstall to Workspace"\n' +
+            '5. Try again';
+        } else if (data.details) {
+          errorMessage += '\n\n' + data.details;
+        }
+        
+        throw new Error(errorMessage);
       }
       
-      const data = await response.json();
       console.log('Channels received:', data.channels);
       
       // Set channels
-      setChannels(data.channels || []);
+      if (!data.channels || data.channels.length === 0) {
+        alert('No channels found. Make sure the bot is a member of at least one channel in your Slack workspace.');
+        setChannels([]);
+      } else {
+        setChannels(data.channels);
+      }
       
       // For now, use a simulated user ID (in production, get from OAuth)
       // TODO: Implement real OAuth to get actual userId
@@ -46,7 +68,7 @@ export default function Home() {
       loadTasks();
     } catch (error) {
       console.error('Error connecting to Slack:', error);
-      alert(`Error loading channels: ${error.message}\n\nMake sure the Railway server is running and has the correct Slack permissions.`);
+      alert(`Error loading channels:\n\n${error.message}\n\nCheck the browser console (F12) for more details.`);
       setLoading(false);
     }
   }

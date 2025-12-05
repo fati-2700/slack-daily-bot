@@ -366,6 +366,7 @@ expressApp.get('/api/channels', async (req, res) => {
     console.log('📥 GET /api/channels - Fetching channels from Slack');
     
     // Use the Slack client to get channels
+    // Note: Requires 'channels:read' and 'groups:read' scopes, or 'conversations.list' scope
     const result = await app.client.conversations.list({
       types: 'public_channel,private_channel',
       exclude_archived: true,
@@ -374,7 +375,19 @@ expressApp.get('/api/channels', async (req, res) => {
     
     if (!result.ok) {
       console.error('❌ Error fetching channels:', result.error);
-      return res.status(500).json({ error: result.error || 'Failed to fetch channels' });
+      const errorMessage = result.error === 'missing_scope' 
+        ? 'Bot is missing required permissions. Add "channels:read" and "groups:read" (or "conversations.list") to Bot Token Scopes in Slack app settings, then reinstall the app.'
+        : result.error || 'Failed to fetch channels';
+      return res.status(500).json({ 
+        error: errorMessage,
+        slackError: result.error,
+        details: 'Make sure the bot has channels:read and groups:read permissions'
+      });
+    }
+    
+    if (!result.channels || result.channels.length === 0) {
+      console.warn('⚠️ No channels found');
+      return res.json({ channels: [], message: 'No channels found. Make sure the bot is a member of at least one channel.' });
     }
     
     // Format channels for the frontend
@@ -388,7 +401,10 @@ expressApp.get('/api/channels', async (req, res) => {
     res.json({ channels });
   } catch (error) {
     console.error('❌ Error in GET /api/channels:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      error: error.message,
+      details: 'Check Railway logs for more information'
+    });
   }
 });
 
