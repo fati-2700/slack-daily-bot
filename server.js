@@ -52,14 +52,16 @@ app.command('/daily', async ({ command, ack, respond, client }) => {
     // Get existing configuration or create new one
     const existingConfig = userConfigs.get(userId);
     const currentHour = existingConfig?.hour || 9; // Use existing hour or default to 9 AM
+    const currentMinute = existingConfig?.minute || 0; // Use existing minute or default to 0
     
     console.log(`📊 Existing config for user ${userId}:`, existingConfig);
-    console.log(`⏰ Using hour: ${currentHour}`);
+    console.log(`⏰ Using time: ${currentHour}:${String(currentMinute).padStart(2, '0')}`);
     
-    // Update configuration - preserve hour from web interface if it exists
+    // Update configuration - preserve time from web interface if it exists
     userConfigs.set(userId, {
       channelId: channelId, // Update channel to current channel
       hour: currentHour, // Keep the hour that was set (from web or previous config)
+      minute: currentMinute, // Keep the minute that was set (from web or previous config)
       enabled: true,
       lastSent: existingConfig?.lastSent || null
     });
@@ -67,8 +69,9 @@ app.command('/daily', async ({ command, ack, respond, client }) => {
     const savedConfig = userConfigs.get(userId);
     console.log(`✅ Configuration saved for user ${userId}:`, savedConfig);
     
+    const timeString = `${savedConfig.hour}:${String(savedConfig.minute || 0).padStart(2, '0')}`;
     await respond({
-      text: `✅ Configuration saved. The bot will send daily messages to this channel at ${savedConfig.hour}:00.\n\n💡 To change the time, use the web interface at your Vercel URL.`,
+      text: `✅ Configuration saved. The bot will send daily messages to this channel at ${timeString}.\n\n💡 To change the time, use the web interface at your Vercel URL.`,
       response_type: 'ephemeral'
     });
   } catch (error) {
@@ -297,8 +300,9 @@ cron.schedule('* * * * *', async () => {
   for (const [userId, config] of userConfigs.entries()) {
     if (!config.enabled) continue;
     
-    // Check if it's the configured hour (and minute 0)
-    if (currentHour === config.hour && currentMinute === 0) {
+    // Check if it's the configured hour and minute
+    const configMinute = config.minute || 0;
+    if (currentHour === config.hour && currentMinute === configMinute) {
       // Check if already sent today
       const today = now.toDateString();
       if (config.lastSent !== today) {
@@ -324,9 +328,9 @@ expressApp.get('/api/config/:userId', (req, res) => {
 
 expressApp.post('/api/config', (req, res) => {
   try {
-    const { userId, channelId, hour } = req.body;
+    const { userId, channelId, hour, minute } = req.body;
     
-    console.log('📥 POST /api/config received:', { userId, channelId, hour, hourType: typeof hour });
+    console.log('📥 POST /api/config received:', { userId, channelId, hour, minute, hourType: typeof hour, minuteType: typeof minute });
     
     if (!userId || !channelId || hour === undefined) {
       console.error('❌ Missing parameters:', { userId, channelId, hour });
@@ -339,19 +343,27 @@ expressApp.post('/api/config', (req, res) => {
       return res.status(400).json({ error: 'Invalid hour. Must be between 0 and 23.' });
     }
     
+    const parsedMinute = minute !== undefined ? parseInt(minute, 10) : 0;
+    if (isNaN(parsedMinute) || parsedMinute < 0 || parsedMinute > 59) {
+      console.error('❌ Invalid minute:', minute);
+      return res.status(400).json({ error: 'Invalid minute. Must be between 0 and 59.' });
+    }
+    
     const previousConfig = userConfigs.get(userId);
     console.log('📊 Previous config:', previousConfig);
     
     userConfigs.set(userId, {
       channelId,
       hour: parsedHour,
+      minute: parsedMinute,
       enabled: true,
       lastSent: previousConfig?.lastSent || null
     });
     
     const savedConfig = userConfigs.get(userId);
     console.log('✅ Configuration saved:', savedConfig);
-    console.log(`⏰ Hour set to: ${savedConfig.hour}:00`);
+    const timeString = `${savedConfig.hour}:${String(savedConfig.minute).padStart(2, '0')}`;
+    console.log(`⏰ Time set to: ${timeString}`);
     
     res.json({ success: true, config: savedConfig });
   } catch (error) {

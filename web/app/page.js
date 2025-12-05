@@ -6,6 +6,7 @@ export default function Home() {
   const [isConnected, setIsConnected] = useState(false)
   const [channelId, setChannelId] = useState('')
   const [hour, setHour] = useState(9)
+  const [minute, setMinute] = useState(0)
   const [channels, setChannels] = useState([])
   const [loading, setLoading] = useState(false)
   const [userId, setUserId] = useState('')
@@ -69,11 +70,34 @@ export default function Home() {
       
       setIsConnected(true);
       setLoading(false);
+      loadConfig(); // Load existing configuration
       loadTasks();
     } catch (error) {
       console.error('Error connecting to Slack:', error);
       alert(`Error loading channels:\n\n${error.message}\n\nCheck the browser console (F12) for more details.`);
       setLoading(false);
+    }
+  }
+
+  const loadConfig = async () => {
+    if (!userId) return
+    try {
+      const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+        ? `http://localhost:3002/api/config/${userId}`
+        : `/api/config?userId=${userId}`
+      
+      const response = await fetch(apiUrl)
+      if (response.ok) {
+        const config = await response.json()
+        if (config) {
+          setChannelId(config.channelId || '')
+          setHour(config.hour !== undefined ? config.hour : 9)
+          setMinute(config.minute !== undefined ? config.minute : 0)
+          console.log('✅ Loaded existing config:', config)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading config:', error)
     }
   }
 
@@ -197,7 +221,7 @@ export default function Home() {
         : '/api/config';
       
       console.log('Sending configuration to:', apiUrl);
-      console.log('Data:', { userId, channelId, hour });
+      console.log('Data:', { userId, channelId, hour, minute });
       
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -208,6 +232,7 @@ export default function Home() {
           userId,
           channelId,
           hour,
+          minute,
         }),
       })
 
@@ -289,16 +314,32 @@ export default function Home() {
                 <label className="block text-sm font-medium text-dark-text mb-2">
                   Daily message time
                 </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="23"
-                  value={hour}
-                  onChange={(e) => setHour(parseInt(e.target.value))}
-                  className="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-3 text-dark-text focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <label className="block text-xs text-dark-muted mb-1">Hour</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="23"
+                      value={hour}
+                      onChange={(e) => setHour(parseInt(e.target.value) || 0)}
+                      className="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-3 text-dark-text focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs text-dark-muted mb-1">Minute</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="59"
+                      value={minute}
+                      onChange={(e) => setMinute(parseInt(e.target.value) || 0)}
+                      className="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-3 text-dark-text focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
                 <p className="text-xs text-dark-muted mt-2">
-                  Time in 24h format (0-23). Current: {hour}:00
+                  Time in 24h format. Current: {String(hour).padStart(2, '0')}:{String(minute).padStart(2, '0')}
                 </p>
               </div>
 
