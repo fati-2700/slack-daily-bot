@@ -64,20 +64,12 @@ export default function Home() {
         console.log(`✅ Loaded ${data.channels.length} channels successfully`);
       }
       
-      // For now, prompt user for their Slack user ID
-      // TODO: Implement real OAuth to get actual userId automatically
-      const userInput = prompt(
-        'Enter your Slack User ID:\n\n' +
-        'You can find it in Railway logs after running /daily in Slack.\n' +
-        'It looks like: U0A0TPDCS4A\n\n' +
-        'If you leave it empty, the configuration won\'t match with Slack commands.'
-      );
-      const slackUserId = userInput?.trim() || 'U123456';
-      if (slackUserId === 'U123456') {
-        alert('⚠️ Warning: Using default User ID. Your configuration from the web won\'t match with /daily command in Slack.\n\nTo fix this, find your User ID in Railway logs and use it here.');
+      // Set default user ID if not already set
+      // User can change it in the UI field
+      if (!userId) {
+        setUserId('U0A0TPDCS4A'); // Default to the user's known ID
+        console.log('Set default User ID: U0A0TPDCS4A');
       }
-      setUserId(slackUserId);
-      console.log('Using Slack User ID:', slackUserId);
       
       setIsConnected(true);
       setLoading(false);
@@ -222,6 +214,11 @@ export default function Home() {
       alert('Please select a channel')
       return
     }
+    
+    if (!userId || !userId.startsWith('U')) {
+      alert('Please enter a valid Slack User ID (it should start with "U", like U0A0TPDCS4A)')
+      return
+    }
 
     setLoading(true)
     try {
@@ -301,6 +298,22 @@ export default function Home() {
                   <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                   <span className="text-sm text-green-400">Connected to Slack</span>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-dark-text mb-2">
+                  Your Slack User ID
+                </label>
+                <input
+                  type="text"
+                  value={userId}
+                  onChange={(e) => setUserId(e.target.value)}
+                  placeholder="U0A0TPDCS4A (find it in Railway logs)"
+                  className="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-3 text-dark-text focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p className="text-xs text-dark-muted mt-2">
+                  Find your User ID in Railway logs after running /daily in Slack. It starts with "U"
+                </p>
               </div>
 
               <div>
